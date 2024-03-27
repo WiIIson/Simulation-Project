@@ -216,15 +216,17 @@ class Person:
             
             for person in seen:
                 if person.istat in ["D", "R", "T"]:
-                    selfPosVec = np.array([self.x, self.y])
-                    otherPosVec = np.array([person.x, person.y])
-                    pdist = selfPosVec - otherPosVec
-                    uDist = self.speed * (pdist / np.linalg.norm(pdist))
-                    uDist *= (self.vision - np.linalg.norm(pdist))/self.vision
-                    
-                    # Weight by distance
-                    
-                    avoidVec += uDist
+                    fvec = calcDirVec(self.theta, 1)
+                    fvec = np.array([fvec[0], fvec[1], 0])
+                    selfpos = np.array([self.x, self.y, 0])
+                    otherpos = np.array([person.x, person.y, 0])
+                    dvec = selfpos - otherpos
+                    T = np.cross(fvec, dvec)
+                    #print(T)
+                    if (T[2] > 0):
+                        self.theta += 0.5*dt
+                    else:
+                        self.theta -= 0.5*dt
             
             # Add vectors together and normalize
             dirVec += randDirVec
