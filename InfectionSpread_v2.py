@@ -339,7 +339,8 @@ class Simulation:
             if self.see_iseen:
                 eseen = person.inIrad(self.people)
                 for person2 in eseen:
-                    pygame.draw.line(screen, C_IS1, (person.x, person.y), (person2.x, person2.y))
+                    if person.istat != 'E' and person.istat != 'H':
+                        pygame.draw.line(screen, C_IS1, (person.x, person.y), (person2.x, person2.y))
             
             # Draw people
             if (person.istat=='S'):
