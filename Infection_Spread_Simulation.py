@@ -4,6 +4,14 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 
+"""
+PROJECT BY:
+    William Conley (100782574)
+    Ryan De Sousa (100790163)
+
+See additional comment blocks for instructions on use.
+"""
+
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
@@ -198,22 +206,11 @@ class Person:
                 if self.time_H <= 0:
                     self.istat = "S"
         
-            # Direction is a comination of multiple vectors:
-            # 1. Random direction the person wants to go
-            #    with weight 1
-            # 2. Vector going away from seen infected individuals
-            #    weighted by distance from the individual
-            #
             
-            # Overall direction vector
-            dirVec = np.zeros(2)
+            # Randomly turn direction vector
+            self.theta += (random.random() - 0.5)*dt
             
-            # Calculate random direction vector
-            newTheta = self.theta + (random.random()) - (0.5)
-            randDirVec = calcDirVec(newTheta, self.speed)
-            
-            avoidVec = np.zeros(2)
-            
+            # Cause person to turn when they see an infected person
             for person in seen:
                 if person.istat in ["D", "R", "T"]:
                     fvec = calcDirVec(self.theta, 1)
@@ -222,30 +219,19 @@ class Person:
                     otherpos = np.array([person.x, person.y, 0])
                     dvec = selfpos - otherpos
                     T = np.cross(fvec, dvec)
-                    #print(T)
                     if (T[2] > 0):
                         self.theta += 0.5*dt
                     else:
                         self.theta -= 0.5*dt
             
-            # Add vectors together and normalize
-            dirVec += randDirVec
-            dirVec += avoidVec
-            
-            # Correct dirVec if person cannot go off screen
-            if ((self.x == 0 and dirVec[0] < 0) or (self.x == win_width and dirVec[0] > 1)) and np.linalg.norm(avoidVec) > 0:
-                dirVec[0] = 0
-            if ((self.y == 0 and dirVec[1] < 0) or (self.y == win_height and dirVec[1] > 1)) and np.linalg.norm(avoidVec) > 0:
-                dirVec[1] = 0
-            
-            if np.linalg.norm(dirVec) != 0:
-                dirVec = self.speed * (dirVec / np.linalg.norm(dirVec))
+            # Create new direction vector from angle
+            dirVec = calcDirVec(self.theta, self.speed)
             
             # Update position
             self.x += dirVec[0] * dt
             self.y += dirVec[1] * dt
         
-            # Correct if the person goes off screen
+            # Correct position and angle if the person goes off screen
             if self.x < 0:
                 self.x = 0
                 self.theta = -self.theta + np.pi
@@ -273,11 +259,10 @@ class Simulation:
         self.see_seen = False   # Toggle for seeing lines between entities that see each other
         self.see_iseen = False  # Toggle for seeing lines of infection
         self.person_rad = 10    # Display size of people
-        self.width = width
-        self.height = height
-        self.state = {}
+        self.width = width      # Simulation width
+        self.height = height    # Simulation height
+        self.state = {}         # Count of people in each state
         
-    # Toggle functions    
     
     # Toggle vision radius
     def set_vrad(self, newRad):
@@ -385,7 +370,16 @@ class Simulation:
         # Update simulation state
         self.state = newState
 
-
+    # Check if the simulation has reached a resting state
+    def check_done(self):
+        if (self.state["I"]==0 and
+            self.state["D"]==0 and
+            self.state["A"]==0 and
+            self.state["R"]==0 and
+            self.state["T"]==0):
+            return True
+        else:
+            return False
 
 # Set up simulation data
 pygame.init()
@@ -395,26 +389,70 @@ screen = pygame.display.set_mode((win_width, win_height))
 pygame.display.set_caption('Pandemic Simulation')
 clock = pygame.time.Clock()
 
-# Set up simulation entities
+"""
+SIMULATION SETUP
+Here, you can adjust the initial conditions of the simulation.
+1 - Vision radius, the radius around the people they can detect infected people.
+2 - Max speed, the speed at which the people move
+3/4 - Simulation dimensions, make these the same as the size of the window
+"""
 sim = Simulation(100, 10, win_width, win_height)
 
+"""
+ADDING PEOPLE TO THE SIMULATION
+You can use the sim.add_rand_person() function to add a person
+of a specific state to a random location in the simulation.
+Put this in a loop to add many people of this class.
+Valid classes are:
+    ['S', 'I', 'D', 'A', 'R', 'T', 'H', 'E']
+"""
 for i in range(50):
     sim.add_rand_person("S")
 
 for i in range(3):
     sim.add_rand_person("I")
-#sim.set_irad(True)
-sim.set_iseen(True)
-#sim.set_vseen(True)
 
-# Load music
-pygame.mixer.init()
-pygame.mixer.music.load('PlagueInc.mp3')
-pygame.mixer.music.play(-1)
+"""
+SIMULATION VISUAL OVERLAY
+This simulation has several visual overlays to see how the
+infected interact.
+set_vrad - Toggles a circle around each person showing their field of view
+set_irad - Toggles a circle around each person showing the radius they can infect people in
+set_vseen - Toggles lines connecting people that see each other
+set_iseen - Toggles lines connecting people infecting or being infected by others
+"""
+    
+sim.set_vrad(False)
+sim.set_irad(False)
+sim.set_vseen(False)
+sim.set_iseen(True)
+
+"""
+MUSIC
+This simulation plays music. To mute it, set music to false.
+The project may fail if the music is not in the same folder
+as this code file.
+"""
+music = True
+if music:
+    pygame.mixer.init()
+    pygame.mixer.music.load('PlagueInc.mp3')
+    pygame.mixer.music.play(-1)
 
 df = pd.DataFrame(columns=['H','S','I','D','A','R','T','E'])
 
+"""
+PLOT GENERATION
+When makePlot is set to 'True', a plot of the simulation
+will be created when it is terminated
+"""
 makePlot = True
+
+"""
+SIMULATION
+The simulation will run until the disease has burned out,
+but can be quit at any time by pressing 'Q'
+"""
 
 while (True):
     clock.tick(30)
@@ -427,15 +465,23 @@ while (True):
     # Fill background
     screen.fill(WHITE)
     
-    # Update simulation and draw
+    # Update simulation and draw new locations
     sim.update(screen)
     sim.draw(screen)
+    
+    # Append to state record if requested
     if makePlot:
         df.loc[len(df)] = list(sim.state.values())
+    
+    # Check if a resting state has been reached and quit if so
+    if sim.check_done():
+        pygame.quit()
+        break
     
     # Update screen
     pygame.display.flip()
 
+# Create plot if requested
 if makePlot:
     df.plot.area(color=(
         to_hex(C_H),
@@ -446,4 +492,5 @@ if makePlot:
         to_hex(C_IS2),
         to_hex(C_IS3),
         to_hex(C_D)
-    ))
+    ),
+    figsize=(30,15))
